@@ -44,10 +44,11 @@ void print_super(struct ext2_super_block *super)
 		super->s_first_data_block);
 }
 
-int read_gd_table(int df, struct ext2_super_block *super, struct ext2_group_desc **gd_table, int *gd_table_size)
+int read_gd_table(int df, struct ext2_super_block *super, struct ext2_group_desc **gd_table, int *table_size)
 {
 	int i;
 	int nr_groups;
+	struct ext2_group_desc *table;
 
 	int gd_table_offset = (super->s_first_data_block + 1) *	\
 				(1024 << super->s_log_block_size);
@@ -55,29 +56,40 @@ int read_gd_table(int df, struct ext2_super_block *super, struct ext2_group_desc
 	printf("Read group desc table at %d.\n", gd_table_offset);
 
 	nr_groups = super->s_blocks_count / super->s_blocks_per_group + 1;
-	*gd_table_size = nr_groups;
+	*table_size = nr_groups;
 
-	gd_table = malloc(nr_groups * sizeof(struct ext2_group_desc));
+	table = malloc(nr_groups * sizeof(struct ext2_group_desc));
+	*gd_table = table;
 
 	lseek(df, gd_table_offset, SEEK_SET);
-	read(df, gd_table, nr_groups * sizeof(struct ext2_group_desc));
+	read(df, table, nr_groups * sizeof(struct ext2_group_desc));
 
 /*
 	for (i = 0; i < nr_groups * sizeof(struct ext2_group_desc); i++) {
-		if (!(i % 16)) printf("\n");
-		printf("%02x ", *((unsigned char * )gd_table + i));
+		if (!(i % 32)) printf("\n");
+		printf("%02x ", *((unsigned char * )table + i));
 	}
 	printf("\n");
 */
 }
 
-void print_gd_table(struct ext2_group_desc **gd_table, int nr_groups)
+void print_gd_table(struct ext2_group_desc *gd_table, int nr_groups)
 {
 	int i;
-	struct ext2_group_desc *gd = (struct ext2_group_desc *)gd_table;
+	struct ext2_group_desc *gd = gd_table;
 
 	printf("Total: %d group desc.\n", nr_groups);
 	for (i = 0; i < nr_groups; i++) {
+/*
+		int j;
+		char *p;
+
+		p = (unsigned char *)gd;
+		for (j = 0; j < sizeof(struct ext2_group_desc); j++) {
+			printf("%02x ", *(unsigned char *)(p+j));
+		}
+		printf("\n");
+*/
 		printf("\tgroup %d: %d free blocks.\n",
 				i, gd->bg_free_blocks_count);
 		gd++;
@@ -92,7 +104,7 @@ int main(int argc, char *argv[])
 	unsigned int nr_groups;
 
 	struct ext2_super_block super;
-	struct ext2_group_desc **gd_table;
+	struct ext2_group_desc *gd_table;
 
 	if (argc < 2 ) exit(-1);
 
@@ -111,6 +123,6 @@ int main(int argc, char *argv[])
 	}
 	print_super(&super);
 
-	read_gd_table(df, &super, gd_table, &nr_groups);
+	read_gd_table(df, &super, &gd_table, &nr_groups);
 	print_gd_table(gd_table, nr_groups);
 }
